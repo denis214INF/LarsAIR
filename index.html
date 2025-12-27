@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lars AI Search Engine</title>
+    <style>
+        body { background: #0b0e14; color: #e1e1e1; font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { background: #161b22; padding: 15px; text-align: center; border-bottom: 2px solid #38bdf8; }
+        #chat { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; }
+        .msg { padding: 15px; border-radius: 12px; max-width: 85%; line-height: 1.6; font-size: 16px; }
+        .user { background: #38bdf8; color: #000; align-self: flex-end; }
+        .ai { background: #1e293b; align-self: flex-start; border: 1px solid #334155; white-space: pre-wrap; }
+        .input-area { padding: 20px; background: #161b22; display: flex; gap: 10px; border-top: 1px solid #30363d; }
+        input { flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #334155; background: #0d1117; color: white; outline: none; }
+        button { background: #38bdf8; color: #000; border: none; padding: 10px 25px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        button:disabled { opacity: 0.5; }
+    </style>
+</head>
+<body>
+
+<header><h2 style="margin:0; color: #38bdf8;">LARS SEARCH AI</h2></header>
+<div id="chat"><div class="msg ai">Система готова. Включите VPN для стабильной работы и задайте вопрос.</div></div>
+
+<div class="input-area">
+    <input type="text" id="query" placeholder="Введите ваш запрос..." autocomplete="off">
+    <button id="btn" onclick="askAI()">ПОИСК</button>
+</div>
+
+<script>
+    // Твой ключ интегрирован напрямую
+    const API_KEY = "AIzaSyD1UuJVaOc9hg9_f8nHL4s7m1i_KTg8V7s"; 
+
+    async function askAI() {
+        const input = document.getElementById('query');
+        const btn = document.getElementById('btn');
+        const chat = document.getElementById('chat');
+        const text = input.value.trim();
+        
+        if(!text) return;
+
+        input.disabled = true;
+        btn.disabled = true;
+        appendMsg('user', text);
+        input.value = '';
+
+        const aiDiv = appendMsg('ai', "Анализирую данные...");
+
+        try {
+            // Используем v1beta с корректным названием модели
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+            
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: text }] }]
+                })
+            });
+
+            const data = await response.json();
+            
+            if (data.candidates && data.candidates[0].content) {
+                aiDiv.innerText = data.candidates[0].content.parts[0].text;
+            } else if (data.error) {
+                aiDiv.innerText = "Ошибка API: " + data.error.message;
+                console.error("Детали:", data.error);
+            } else {
+                aiDiv.innerText = "Получен пустой ответ. Проверьте настройки VPN.";
+            }
+        } catch (e) {
+            aiDiv.innerText = "Сетевая ошибка. Скорее всего, доступ заблокирован. Пожалуйста, используйте VPN.";
+        } finally {
+            input.disabled = false;
+            btn.disabled = false;
+            chat.scrollTop = chat.scrollHeight;
+        }
+    }
+
+    function appendMsg(type, text) {
+        const d = document.createElement('div');
+        d.className = `msg ${type}`;
+        d.innerText = text;
+        document.getElementById('chat').appendChild(d);
+        return d;
+    }
+
+    document.getElementById('query').addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') askAI();
+    });
+</script>
+</body>
+</html>
