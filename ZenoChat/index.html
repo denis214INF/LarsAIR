@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZenoChat | Premium Anonymous Network</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        /* ================================================================
+           1. ЦВЕТОВАЯ ПАЛИТРА И ПЕРЕМЕННЫЕ
+           ================================================================
+        */
+        :root {
+            --bg-dark: #050507;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent: #8257ff;
+            --accent-glow: rgba(130, 87, 255, 0.5);
+            --premium: #ffb800;
+            --premium-glow: rgba(255, 184, 0, 0.4);
+            --text-main: #ffffff;
+            --text-dim: #888891;
+            --error: #ff4d4d;
+            --success: #00ff88;
+            --transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+        }
+
+        /* ================================================================
+           2. ГЛОБАЛЬНЫЕ СТИЛИ И АНИМАЦИИ
+           ================================================================
+        */
+        * { box-sizing: border-box; outline: none; }
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            background: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Анимированный фон с движущимся градиентом */
+        .bg-glow {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: radial-gradient(circle at 50% -20%, #1a1a2e 0%, transparent 50%),
+                        radial-gradient(circle at 0% 100%, #0d0d15 0%, transparent 40%);
+            z-index: -1;
+        }
+
+        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pulse-ring { 
+            0% { transform: scale(0.8); opacity: 0.5; }
+            100% { transform: scale(1.5); opacity: 0; }
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* ================================================================
+           3. КОНТЕЙНЕРЫ ЭКРАНОВ
+           ================================================================
+        */
+        .screen {
+            position: absolute; top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: none; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 20px;
+            opacity: 0; transform: scale(1.05);
+            transition: var(--transition);
+        }
+
+        .screen.active {
+            display: flex; opacity: 1; transform: scale(1);
+        }
+
+        /* ================================================================
+           4. ГЛАВНОЕ МЕНЮ (UI)
+           ================================================================
+        */
+        .logo-container { text-align: center; margin-bottom: 50px; animation: float 4s ease-in-out infinite; }
+        .logo-main {
+            font-size: 4rem; font-weight: 800; letter-spacing: -2px;
+            background: linear-gradient(to bottom, #fff, #666);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+        }
+        .logo-sub { color: var(--accent); font-size: 1.2rem; font-weight: 400; margin-top: -10px; letter-spacing: 5px; }
+
+        .btn-group { display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 300px; }
+        
+        .btn {
+            background: var(--glass);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 18px 30px;
+            border-radius: 16px;
+            font-size: 1rem; font-weight: 600;
+            cursor: pointer; transition: var(--transition);
+            backdrop-filter: blur(10px);
+            text-decoration: none; text-align: center;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            border: none;
+            box-shadow: 0 0 30px var(--accent-glow);
+        }
+
+        .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 10px 40px var(--accent-glow); }
+
+        .btn-premium {
+            border: 1px solid var(--premium);
+            color: var(--premium);
+        }
+        .btn-premium:hover { background: var(--premium); color: black; box-shadow: 0 0 30px var(--premium-glow); }
+
+        /* ================================================================
+           5. ЭКРАН ПОИСКА (RADAR UI)
+           ================================================================
+        */
+        .radar-container {
+            width: 250px; height: 250px;
+            border-radius: 50%;
+            border: 1px solid var(--glass-border);
+            position: relative;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: 40px;
+        }
+
+        .radar-ring {
+            position: absolute; width: 100%; height: 100%;
+            border-radius: 50%; border: 2px solid var(--accent);
+            animation: pulse-ring 2s infinite;
+        }
+
+        .radar-scanner {
+            position: absolute; width: 100%; height: 100%;
+            background: conic-gradient(from 0deg, var(--accent-glow), transparent 40%);
+            border-radius: 50%;
+            animation: rotate 3s linear infinite;
+        }
+
+        /* ================================================================
+           6. ИНТЕРФЕЙС ЧАТА
+           ================================================================
+        */
+        .chat-wrap {
+            width: 100%; max-width: 600px; height: 100%;
+            background: rgba(10, 10, 12, 0.8);
+            backdrop-filter: blur(20px);
+            display: flex; flex-direction: column;
+            border-left: 1px solid var(--glass-border);
+            border-right: 1px solid var(--glass-border);
+        }
+
+        .chat-header {
+            padding: 20px; border-bottom: 1px solid var(--glass-border);
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        #chat-content {
+            flex: 1; overflow-y: auto; padding: 20px;
+            display: flex; flex-direction: column; gap: 15px;
+        }
+
+        .bubble {
+            padding: 14px 20px; border-radius: 20px; font-size: 0.95rem; line-height: 1.5;
+            max-width: 85%; animation: msgIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes msgIn { from { opacity: 0; transform: translateY(20px) scale(0.9); } }
+
+        .bubble.me { align-self: flex-end; background: var(--accent); color: white; border-bottom-right-radius: 5px; }
+        .bubble.them { align-self: flex-start; background: #23232b; border-bottom-left-radius: 5px; }
+        .bubble.system { align-self: center; background: none; color: var(--text-dim); font-size: 0.8rem; border: none; }
+
+        .chat-input-area {
+            padding: 20px; background: rgba(0,0,0,0.4);
+            display: flex; gap: 12px; align-items: center;
+        }
+
+        .modern-input {
+            flex: 1; background: #18181f; border: 1px solid var(--glass-border);
+            padding: 15px 20px; border-radius: 14px; color: white;
+            transition: var(--transition);
+        }
+        .modern-input:focus { border-color: var(--accent); background: #1c1c25; }
+
+        /* ================================================================
+           7. МОДАЛЬНЫЕ ОКНА (PROMO & PAYMENT)
+           ================================================================
+        */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); backdrop-filter: blur(10px);
+            z-index: 1000; display: none; align-items: center; justify-content: center;
+            opacity: 0; transition: var(--transition);
+        }
+        .overlay.active { display: flex; opacity: 1; }
+
+        .modal-card {
+            background: #111116; border: 1px solid var(--glass-border);
+            padding: 40px; border-radius: 30px; width: 90%; max-width: 400px;
+            text-align: center; position: relative;
+        }
+
+        .premium-crown { font-size: 3rem; margin-bottom: 20px; display: block; }
+
+        /* ================================================================
+           8. ВСПОМОГАТЕЛЬНЫЕ СТИЛИ
+           ================================================================
+        */
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 8px; box-shadow: 0 0 10px var(--success); }
+        .promo-status { margin-top: 10px; font-size: 0.8rem; }
+        .premium-tag { color: var(--premium); font-weight: 800; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; display: block; }
+	/* Кнопка Telegram в верхнем правом углу */
+.tg-floating-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999; /* Чтобы была выше всех, кроме модалок */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(36, 161, 222, 0.15); /* Цвет Telegram с прозрачностью */
+    border: 1px solid rgba(36, 161, 222, 0.4);
+    padding: 10px 18px;
+    border-radius: 14px;
+    color: white;
+    text-decoration: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    backdrop-filter: blur(10px);
+    transition: var(--transition);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+}
+
+.tg-floating-btn:hover {
+    background: rgba(36, 161, 222, 0.3);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(36, 161, 222, 0.4);
+    border-color: #24a1de;
+}
+
+.tg-icon {
+    width: 20px;
+    height: 20px;
+    fill: #24a1de;
+}
+
+/* Скрываем кнопку на маленьких экранах, чтобы не перекрывала чат, или уменьшаем */
+@media (max-width: 500px) {
+    .tg-floating-btn span { display: none; } /* Оставляем только иконку на мобилках */
+    .tg-floating-btn { padding: 10px; border-radius: 50%; }
+}
+    </style>
+</head>
+<body>
+    <a href="https://t.me/@ZenoChatPromo" target="_blank" class="tg-floating-btn">
+    <svg class="tg-icon" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.2-.08-.06-.19-.04-.27-.02-.11.02-1.93 1.23-5.46 3.62-.51.35-.98.53-1.39.51-.46-.01-1.33-.26-1.98-.48-.8-.27-1.43-.42-1.37-.89.03-.25.38-.51 1.03-.78 4.04-1.76 6.74-2.92 8.09-3.48 3.85-1.6 4.64-1.88 5.17-1.88.11 0 .37.03.54.17.14.12.18.28.2.45-.02.07-.02.13-.03.19z"/>
+    </svg>
+    <span>Наш Telegram</span>
+</a>
+    <div class="bg-glow"></div>
+
+    <div id="screen-menu" class="screen active">
+        <div class="logo-container">
+            <div class="logo-main">ZENO</div>
+            <div class="logo-sub">NETWORK</div>
+        </div>
+        
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="App.startSearch()">Начать поиск</button>
+            <button class="btn btn-premium" onclick="App.openPremium()">Купить Premium</button>
+            <button class="btn" onclick="App.openPromo()">Ввести промокод</button>
+        </div>
+        <p style="margin-top: 30px; color: var(--text-dim); font-size: 0.8rem;">V3.0 • 2026 EDITION</p>
+    </div>
+
+    <div id="screen-search" class="screen">
+        <div class="radar-container">
+            <div class="radar-scanner"></div>
+            <div class="radar-ring"></div>
+            <div style="z-index: 5; font-weight: 800; letter-spacing: 2px;">SEARCHING</div>
+        </div>
+        <h2 id="search-text">Ищем анонима...</h2>
+        <p style="color: var(--text-dim);" id="timer">00:00</p>
+        <button class="btn" style="margin-top: 40px; border-color: var(--error); color: var(--error);" onclick="App.stopSearch()">Отмена</button>
+    </div>
+
+    <div id="screen-chat" class="screen" style="padding: 0;">
+        <div class="chat-wrap">
+            <div class="chat-header">
+                <div>
+                    <span class="status-dot"></span>
+                    <span id="partner-status">Собеседник в сети</span>
+                </div>
+                <button class="btn" style="padding: 8px 15px; font-size: 0.8rem;" onclick="App.leaveChat()">Новый чат</button>
+            </div>
+            
+            <div id="chat-content">
+                </div>
+
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" class="modern-input" placeholder="Напишите что-нибудь...">
+                <button class="btn btn-primary" style="padding: 15px;" onclick="App.sendMessage()">➤</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-payment" class="overlay">
+        <div class="modal-card">
+            <span class="premium-crown">👑</span>
+            <h2 style="color: var(--premium);">PREMIUM ACCESS</h2>
+            <p style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 25px;">
+                Открой эксклюзивные возможности чата навсегда за 99₽.
+	    </p> 
+	    <p style="color: var(--text-dim); font-size: 0.9rem; margin-bottom: 25px;">
+		<a href="Prem.HTMl" target="_blank" style="color: var(--premium); text-decoration: underline;">Подробнее тут.</a>
+		
+            </p> 
+            
+            <form method="POST" action="https://yoomoney.ru/quickpay/confirm.xml">
+                 
+                <input type="hidden" name="formcomment" value="ZenoChat Premium">
+                <input type="hidden" name="short-dest" value="ZenoChat Premium">
+                <input type="hidden" name="label" id="yoo-label">
+                <input type="hidden" name="quickpay-form" value="button">
+                <input type="hidden" name="targets" value="Покупка Premium ZenoChat">
+                <input type="hidden" name="sum" value="99" data-type="number">
+                <input type="hidden" name="paymentType" value="AC"> 
+                
+                
+            </form>
+            
+            <button class="btn" style="width: 100%; background: none;" onclick="App.closeModals()">Позже</button>
+        </div>
+    </div>
+
+    <div id="modal-promo" class="overlay">
+        <div class="modal-card">
+            <h2>Промокод</h2>
+            <p style="color: var(--text-dim); margin-bottom: 20px;">Введите секретный код из наших соцсетей</p>
+            <input type="text" id="promo-input" class="modern-input" placeholder="XXXX-XXXX" style="text-align: center; margin-bottom: 15px;">
+            <div id="promo-msg" class="promo-status"></div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 10px;" onclick="App.checkPromo()">Активировать</button>
+            <button class="btn" style="width: 100%; background: none; margin-top: 10px;" onclick="App.closeModals()">Отмена</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, push, onValue, onChildAdded, remove, get, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+        // ТВОЙ КОНФИГ FIREBASE
+        const firebaseConfig = {
+            apiKey: "AIzaSyCmB1wfdf86HgZBKuix6YDqtQDTyEZfPr4",
+            authDomain: "zc-zeno-chat.firebaseapp.com",
+            databaseURL: "https://zc-zeno-chat-default-rtdb.firebaseio.com",
+            projectId: "zc-zeno-chat",
+            storageBucket: "zc-zeno-chat.firebasestorage.app",
+            messagingSenderId: "212121977217",
+            appId: "1:212121977217:web:ebb297363e135b68c42880"
+        };
+
+        const fbApp = initializeApp(firebaseConfig);
+        const db = getDatabase(fbApp);
+
+        // КЛАСС УПРАВЛЕНИЯ ПРИЛОЖЕНИЕМ
+        window.App = {
+            uid: null,
+            isPremium: false,
+            currentRoomId: null,
+            searchInterval: null,
+
+            init() {
+                // Инициализация юзера
+                this.uid = localStorage.getItem('zeno_uid') || 'zeno_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('zeno_uid', this.uid);
+                document.getElementById('yoo-label').value = this.uid;
+
+                // Проверка премиума
+                this.checkLocalPremium();
+                this.setupEnterKey();
+                
+                console.log("ZenoChat Engine Started. UserID:", this.uid);
+                console.log("Admin hint: Use App.createPromo('CODE') in console to generate promo codes.");
+            },
+
+            checkLocalPremium() {
+                this.isPremium = localStorage.getItem('zeno_premium') === 'true';
+                if (this.isPremium) {
+                    document.querySelector('.logo-sub').innerHTML = "PREMIUM MEMBER";
+                    document.querySelector('.logo-sub').style.color = "var(--premium)";
+                }
+            },
+
+            // УПРАВЛЕНИЕ ЭКРАНАМИ
+            showScreen(screenId) {
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById(screenId).classList.add('active');
+            },
+
+            // МОДАЛКИ
+            openPremium() { document.getElementById('modal-payment').classList.add('active'); },
+            openPromo() { document.getElementById('modal-promo').classList.add('active'); },
+            closeModals() { document.querySelectorAll('.overlay').forEach(o => o.classList.remove('active')); },
+
+            // ЛОГИКА ПОИСКА (MATCHMAKING)
+            async startSearch() {
+                this.showScreen('screen-search');
+                this.startTimer();
+
+                const queueRef = ref(db, 'waiting_room');
+                const snap = await get(queueRef);
+                const queue = snap.val();
+
+                if (queue) {
+                    // Если кто-то ждет - берем его
+                    const opponentId = Object.keys(queue)[0];
+                    if (opponentId !== this.uid) {
+                        const roomId = `room_${Math.min(this.uid, opponentId)}_${Math.max(this.uid, opponentId)}`;
+                        
+                        await set(ref(db, 'rooms/' + roomId), {
+                            users: [this.uid, opponentId],
+                            createdAt: serverTimestamp(),
+                            active: true
+                        });
+
+                        await remove(ref(db, 'waiting_room/' + opponentId));
+                        this.enterRoom(roomId);
+                    }
+                } else {
+                    // Ждем сами
+                    await set(ref(db, 'waiting_room/' + this.uid), { timestamp: serverTimestamp() });
+                    
+                    // Слушаем, не создал ли кто-то комнату с нами
+                    const roomsRef = ref(db, 'rooms');
+                    onValue(roomsRef, (snapshot) => {
+                        const rooms = snapshot.val();
+                        for (let rid in rooms) {
+                            if (rooms[rid].users.includes(this.uid)) {
+                                this.enterRoom(rid);
+                                break;
+                            }
+                        }
+                    });
+                }
+            },
+
+            enterRoom(roomId) {
+                this.currentRoomId = roomId;
+                this.stopTimer();
+                this.showScreen('screen-chat');
+                this.loadMessages();
+                this.addBubble("Система", "Собеседник найден! Соблюдайте правила общения.", "system");
+            },
+
+            async stopSearch() {
+                await remove(ref(db, 'waiting_room/' + this.uid));
+                location.reload();
+            },
+
+            // ЧАТ
+            sendMessage() {
+                const input = document.getElementById('chat-input');
+                const text = input.value.trim();
+                if (!text || !this.currentRoomId) return;
+
+                push(ref(db, `messages/${this.currentRoomId}`), {
+                    sender: this.uid,
+                    text: text,
+                    isPremium: this.isPremium,
+                    time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
+                });
+
+                input.value = '';
+            },
+
+            loadMessages() {
+                const msgRef = ref(db, `messages/${this.currentRoomId}`);
+                const content = document.getElementById('chat-content');
+                
+                onChildAdded(msgRef, (snap) => {
+                    const m = snap.val();
+                    this.addBubble(
+                        m.sender === this.uid ? "Вы" : "Аноним", 
+                        m.text, 
+                        m.sender === this.uid ? "me" : "them",
+                        m.isPremium
+                    );
+                });
+            },
+
+            addBubble(name, text, type, isPrem = false) {
+                const content = document.getElementById('chat-content');
+                const div = document.createElement('div');
+                div.className = `bubble ${type}`;
+                
+                let premTag = (isPrem && type !== 'system') ? `<span class="premium-tag">Premium 👑</span>` : '';
+                div.innerHTML = `${premTag}${text}`;
+                
+                content.appendChild(div);
+                content.scrollTop = content.scrollHeight;
+            },
+
+            async leaveChat() {
+                if (this.currentRoomId) {
+                    await remove(ref(db, `rooms/${this.currentRoomId}`));
+                    await remove(ref(db, `messages/${this.currentRoomId}`));
+                }
+                location.reload();
+            },
+
+            // ПРОМОКОДЫ
+            async checkPromo() {
+                const code = document.getElementById('promo-input').value.trim().toUpperCase();
+                const msg = document.getElementById('promo-msg');
+                
+                if (!code) return;
+
+                const promoRef = ref(db, 'promo_codes/' + code);
+                const snap = await get(promoRef);
+
+                if (snap.exists() && snap.val().active) {
+                    localStorage.setItem('zeno_premium', 'true');
+                    this.isPremium = true;
+                    msg.style.color = "var(--success)";
+                    msg.innerText = "Успешно! Обновляем...";
+                    
+                    // Помечаем код как использованный (опционально)
+                    // await set(ref(db, 'promo_codes/' + code), { active: false });
+
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    msg.style.color = "var(--error)";
+                    msg.innerText = "Неверный код или истек";
+                }
+            },
+
+            // ФУНКЦИЯ ДЛЯ ТЕБЯ (АДМИНКА)
+            // Писать в консоли браузера: App.createPromo('МОЙКОД')
+            async createPromo(code) {
+                await set(ref(db, 'promo_codes/' + code.toUpperCase()), { active: true });
+                return "Промокод " + code + " создан в базе!";
+            },
+
+            // УТИЛИТЫ
+            startTimer() {
+                let s = 0;
+                this.searchInterval = setInterval(() => {
+                    s++;
+                    let m = Math.floor(s / 60);
+                    let sec = s % 60;
+                    document.getElementById('timer').innerText = 
+                        `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+                }, 1000);
+            },
+
+            stopTimer() { clearInterval(this.searchInterval); },
+
+            setupEnterKey() {
+                document.getElementById('chat-input').addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') this.sendMessage();
+                });
+            }
+        };
+
+        App.init();
+    </script>
+</body>
+</html>
